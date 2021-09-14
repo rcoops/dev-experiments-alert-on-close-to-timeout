@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Description: |
+  Lambda for testing alarm based on exceeding near to timeout
+
+Parameters:
+  Timeout:
+    Description: Lambda timeout in seconds
+    Type: Number
+    Default: 25
+
+Resources:
+  Lambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src/
+      Timeout: !Ref Timeout
+      Handler: aws.lambda_handler
+      Runtime: python3.8
+      Tracing: Active
+      AutoPublishAlias: live
+
+  TimeoutLambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: 'just a test'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 80
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      TreatMissingData: notBreaching
+      Metrics:
+        - Expression: (duration / (timeout * 10))
+          Id: durationtimeoutRate
+          Label: Duration Timeout Rate
+        - Id: duration
+          Label: Duration
+          MetricStat:
+            Metric:
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref Lambda
+                - Name: Resource
+                  Value: !Ref Lambda
+              MetricName: Duration
+              Namespace: AWS/Lambda
+            Period: 60
+            Stat: Maximum
+          ReturnData: false
+        - Id: timeout
+          Label: Timeout
+          Expression: !Ref Timeout
+          ReturnData: false
